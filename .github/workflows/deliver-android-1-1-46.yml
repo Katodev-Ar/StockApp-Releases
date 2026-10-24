@@ -1,0 +1,38 @@
+name: Entrega del APK 1.1.46
+
+on:
+  push:
+    branches: [codex/deliver-android-1-1-46]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: deliver-android-1-1-46
+  cancel-in-progress: false
+
+jobs:
+  upload-draft-assets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reconstituir y verificar el APK
+        shell: bash
+        run: |
+          cd "$RUNNER_TEMP"
+          cat "$GITHUB_WORKSPACE"/delivery/NexoPOS-1.1.46.apk.part-* > NexoPOS-1.1.46.apk
+          sha256sum --check "$GITHUB_WORKSPACE/delivery/SHA256SUMS-1.1.46.txt"
+      - name: Subir assets al borrador existente
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: Katodev-Ar/StockApp-Releases
+        run: |
+          draft_state="$(gh release view v1.1.46 --json isDraft --jq '.isDraft')"
+          if [[ "$draft_state" != true ]]; then
+            echo 'Se esperaba un borrador; no se modificó una publicación existente.' >&2
+            exit 1
+          fi
+          gh release upload v1.1.46 "$RUNNER_TEMP/NexoPOS-1.1.46.apk" "$GITHUB_WORKSPACE/delivery/SHA256SUMS-1.1.46.txt"
+          gh release view v1.1.46 --json assets --jq '.assets[] | {name, size, state}'
